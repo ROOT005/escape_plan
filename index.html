@@ -1,0 +1,139 @@
+<!doctype html>
+<html>
+    <head>
+        <meta charset="UTF-8" />
+        <title>逃离计划</title>
+        <script src="//cdn.jsdelivr.net/phaser/2.6.0/phaser.min.js"></script>
+    </head>
+    <body style="margin: 0">
+    <script type="text/javascript">
+        window.onload = function() {
+            var game = new Phaser.Game(414, 736, Phaser.AUTO,'game');
+            game.States = {};
+            game.States.boot = function(){
+                this.preload = function(){
+                    if(!game.device.desktop){//移动设备适应
+                        this.scale.scaleMode = Phaser.ScaleManager.EXACT_FIT;
+                        this.scale.forcePortrait = true;
+                        this.scale.refresh();
+                    }
+                };
+                this.create = function(){
+                     game.state.start('preload'); //加载完成后调用preload场景   
+                };
+            } //boot场景,启动前动画
+            game.States.preload = function(){
+                this.preload = function(){
+                    game.load.image('logo', '../res/img/phaser.png');
+                    game.load.image('earth', '../res/img/background/earth.png');
+                    game.load.image('sky', '../res/img/background/sky.jpg');
+                    game.load.spritesheet('rocket', '../res/img/rocket.png');
+                    //添加障碍物
+                    game.load.spritesheet('meteorite01', '../res/img/hazard/meteorite02.png');
+                   
+                }
+                this.create = function(){
+                    game.state.start('menu');
+                }
+            }; //显示资源加载进度
+            game.States.menu = function(){
+                this.create = function(){
+                    var sky = game.add.tileSprite(0,0, game.width, game.height, 'sky').autoScroll(0,100);
+                    var earth = game.add.tileSprite(0,game.height-150,game.width, 150,'earth');
+                    var logo = game.add.button(game.world.centerX, game.world.centerY, 'logo',function(){
+                        game.state.start('play');
+                    });
+                    logo.anchor.setTo(0.5, 0.5);
+                }
+               
+            } //游戏菜单
+            game.States.play = function(){ //play场景
+               this.create = function(){
+                    this.sky = game.add.tileSprite(0,0, game.width, game.height, 'sky');
+                    this.earth = game.add.tileSprite(0,game.height-150,game.width, 150,'earth');
+                    //障碍物组
+                    this.meteorite01Group = game.add.group();
+                    this.meteorite01Group.enableBody = true;
+                    //火箭
+                    this.rocket = game.add.sprite(game.world.centerX,game.height-150,'rocket');
+                    this.rocket.animations.add('fly');
+                    /*this.rocket.animations.play('fly', 60, true);*/
+                    this.rocket.anchor.setTo(0.5, 0.5);
+                    //绑定物理引擎
+                    game.physics.enable(this.rocket, Phaser.Physics.ARCADE);
+                    this.rocket.body.gravity.y=0;
+
+
+                    this.rocket.inputEnabled = true;//开启交互   
+                    this.rocket.input.enableDrag();// 允许拖动精灵
+                    this.rocket.input.allowVerticalDrag = false;// 不允许竖直方向运动
+
+                    this.hasStarted = false; //游戏是否已开始
+                    game.time.events.loop(900, this.generateMete,this);
+                    game.time.events.stop(false);
+                    game.input.onDown.addOnce(this.startGame, this);//点击屏幕开始游戏
+               }
+               this.update = function(){
+                    if(!this.hasStarted) return; //游戏未开始
+                    game.physics.arcade.overlap(this.rocket, this.meteorite01Group,this.hitMete,null,this);//陨石碰撞
+               }
+               this.startGame = function(){
+                    this.gameSpeed = 200;
+                    this.gameIsOver = false;
+                    this.hasStarted = true;
+                    this.score = 0;
+                    this.sky.autoScroll(0,100);
+                    /*this.rocket.body.gravity.y = -150;*/
+                    this.earth.destroy();
+                    game.input.onDown.add(this.fly, this);
+                    game.time.events.start();
+               }
+               this.stopGame = function(){
+                    this.sky.stopScroll();
+                    this.rocket.animations.stop('fly', 10);
+                    game.time.events.stop(true);
+               }
+               this.fly =  function(){
+                    this.rocket.body.velocity.y = 0;
+                    //背景加速
+                    //this.soundFly().play;飞行声音
+               }
+               this.hitMete = function(){
+
+                    if (this.gameIsOver) return;
+                    //游戏结束
+                    this.gameOver();
+               }
+               //游戏结束
+               this.gameOver = function(){
+                    this.gameIsOver = true;
+                    //this.stopGame();
+
+               }
+               this.generateMete = function(gap){ //随机生成陨石
+                    console.log('生成陨石啦!');
+                    gap = gap || 100;
+                    var positionX = 14 + Math.floor(400 * Math.random());
+                    console.log(positionX)
+                    var mateL = game.add.sprite(positionX, -200, 'meteorite01');
+                    game.physics.enable(mateL, Phaser.Physics.ARCADE);
+                    mateL.body.gravity.y=300;
+
+                    this.meteorite01Group.setAll('checkWorldBounds',true);
+                    this.meteorite01Group.setAll('outOfBoundsKill',true);
+                    this.meteorite01Group.setAll('body.velocity.y', -this.gameSpeed);
+                    
+               }
+              
+            }
+
+            //把定义好的场景添加到游戏中
+            game.state.add('boot',game.States.boot);
+            game.state.add('preload', game.States.preload);
+            game.state.add('menu', game.States.menu);
+            game.state.add('play', game.States.play);
+            game.state.start('boot');
+        };
+    </script>
+    </body>
+</html>
