@@ -51,9 +51,10 @@
                this.create = function(){
                     this.sky = game.add.tileSprite(0,0, game.width, game.height, 'sky');
                     this.earth = game.add.tileSprite(0,game.height-150,game.width, 150,'earth');
+                    this.scoreText = game.add.text(10,10, '',{fontSize: 16,fill:"#FFFFFF"});
                     //障碍物组
-                    this.meteorite01Group = game.add.group();
-                    this.meteorite01Group.enableBody = true;
+                    this.meteorites = game.add.group();
+                    this.meteorites.enableBody = true;
                     //火箭
                     this.rocket = game.add.sprite(game.world.centerX,game.height-150,'rocket');
                     this.rocket.animations.add('fly');
@@ -63,6 +64,9 @@
                     game.physics.enable(this.rocket, Phaser.Physics.ARCADE);
                     this.rocket.body.gravity.y=0;
 
+                    game.physics.enable(this.earth, Phaser.Physics.ARCADE);
+                    this.earth.body.gravity.y=0;
+
 
                     this.rocket.inputEnabled = true;//开启交互   
                     this.rocket.input.enableDrag();// 允许拖动精灵
@@ -70,13 +74,20 @@
 
 
                     this.hasStarted = false; //游戏是否已开始
-                    game.time.events.loop(900, this.generateMete,this);
+                    
                     game.time.events.stop(false);
                     game.input.onDown.addOnce(this.startGame, this);//点击屏幕开始游戏
                }
                this.update = function(){
+                    if (game.input.activePointer.duration != -1) {  //监听按下时间,背景加速
+                        this.sky.autoScroll(0,Math.floor(game.input.activePointer.duration/10)+100);
+                        var score = 111;//从服务端请求
+                        this.scoreText.text="距离:"+(score+Math.floor(game.input.activePointer.duration/100))+"km";
+                    }
+
                     if(!this.hasStarted) return; //游戏未开始
-                    game.physics.arcade.overlap(this.rocket, this.meteorite01Group,this.hitMete,null,this);//陨石碰撞
+                   // console.log(this.rocket.body.checkCollision.up);
+                    game.physics.arcade.collide(this.rocket, this.meteorites,this.hitMete,null,this);//陨石碰撞
                }
                this.startGame = function(){
                     this.gameSpeed = 200;
@@ -84,31 +95,34 @@
                     this.hasStarted = true;
                     this.score = 0;
                     this.sky.autoScroll(0,100);
-                    /*this.rocket.body.gravity.y = -150;*/
-                    //背景加速
                     
-                    console.log(game.input.activePointer.duration);
-                    
-                    //陨石掉落加速
-                    this.earth.destroy();
-                    game.input.onDown.add(this.fly, this);
+                    this.rocket.events.onInputDown.add(function(pointer){
+                        /*game.time.events.stop(false);*/
+                        this.geM =  game.time.events.loop(1500, this.generateMete,this);
+                    },this);
+                    this.rocket.events.onInputUp.add(function(){
+                        this.stopGame()
+                    },this);
+
+                    /*this.earth.destroy();*/
+                    this.earth.body.gravity.y=100;
                     game.time.events.start();
                }
                this.stopGame = function(){
                     this.sky.stopScroll();
-                    this.rocket.animations.stop('fly', 10);
-                    game.time.events.stop(true);
+                    game.time.events.remove(this.geM);
+                    /*console.log(game.time.events);*/
+                   /* this.rocket.animations.stop('fly', 10);*/
+                    /*game.time.events.stop(true);*/
                }
                this.fly =  function(){
-                    this.rocket.body.velocity.y = 0;
-                    //背景加速
+                    
                     //this.soundFly().play;飞行声音
                }
                this.hitMete = function(){
-
+                    console.log("撞了!");
                     if (this.gameIsOver) return;
                     //游戏结束
-                    this.gameOver();
                }
                //游戏结束
                this.gameOver = function(){
@@ -116,19 +130,18 @@
                     //this.stopGame();
 
                }
-               this.generateMete = function(gap){ //随机生成陨石
-                  
-                    gap = gap || 100;
+               this.generateMete = function(){ //随机生成陨石
                     var positionX = 14 + Math.floor(400 * Math.random());
-
                     var mateL = game.add.sprite(positionX, -200, 'meteorite01');
                     game.physics.enable(mateL, Phaser.Physics.ARCADE);
-                    mateL.body.gravity.y=300;
-
-                    this.meteorite01Group.setAll('checkWorldBounds',true);
-                    this.meteorite01Group.setAll('outOfBoundsKill',true);
-                    this.meteorite01Group.setAll('body.velocity.y', -this.gameSpeed);
+                    mateL.body.gravity.y=300+Math.floor(game.input.activePointer.duration/10);
                     
+                    console.log(game);
+                    //this.meteorites.create(positionX,100,'meteorite01');
+                    /*var mateL = game.add.sprite(positionX, -200, 'meteorite01',0,this.meteorites);
+                    this.meteorites.setAll('checkWorldBounds',true);
+                    this.meteorites.setAll('outOfBoundsKill',true);
+                    this.meteorites.setAll('this.meteorites.body.veloccity.y', -1000);*/
                }
               
             }
